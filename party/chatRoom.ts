@@ -2,28 +2,31 @@ import type {
   PartyKitServer,
   PartyKitRoom,
   PartyKitConnection,
-} from "partykit/server";
-import { nanoid } from "nanoid";
-import { User, authenticateUser, isSessionValid } from "./utils/auth";
-import { SINGLETON_ROOM_ID } from "./chatRooms";
+} from 'partykit/server';
+import { nanoid } from 'nanoid';
+import { User, authenticateUser, isSessionValid } from './utils/auth';
+import { SINGLETON_ROOM_ID } from './chatRooms';
 import type {
   Message,
   SyncMessage,
   UserMessage,
   ClearRoomMessage,
-} from "./utils/message";
+} from './utils/message';
 import {
   editMessage,
   newMessage,
   syncMessage,
   systemMessage,
-} from "./utils/message";
-import { json, notFound, ok } from "./utils/response";
+} from './utils/message';
+import { json, notFound, ok } from './utils/response';
 
-const DELETE_MESSAGES_AFTER_INACTIVITY_PERIOD = 1000 * 60 * 60 * 24; // 24 hours
+const DELETE_MESSAGES_AFTER_INACTIVITY_PERIOD = 1000 * 60 * 60 * 24 * 7; // 1 week
 
 // track additional information on room and connection objects
-type ChatRoom = PartyKitRoom & { messages?: Message[]; ai?: boolean };
+type ChatRoom = PartyKitRoom & {
+  messages?: Message[];
+  ai?: boolean;
+};
 type ChatConnection = PartyKitConnection & { user?: User | null };
 
 /**
@@ -37,26 +40,29 @@ export default {
     const messages = await ensureLoadMessages(room);
 
     // mark room as created by storing its id in object storage
-    if (request.method === "POST") {
-      await room.storage.put("id", room.id);
+    if (request.method === 'POST') {
+      await room.storage.put('id', room.id);
       return ok();
     }
 
     // return list of messages for server rendering pages
-    if (request.method === "GET") {
-      if (await room.storage.get("id")) {
-        return json<SyncMessage>({ type: "sync", messages });
+    if (request.method === 'GET') {
+      if (await room.storage.get('id')) {
+        return json<SyncMessage>({
+          type: 'sync',
+          messages,
+        });
       }
       return notFound();
     }
 
     // clear room history
-    if (request.method === "DELETE") {
+    if (request.method === 'DELETE') {
       await removeRoomMessages(room);
-      room.broadcast(JSON.stringify(<ClearRoomMessage>{ type: "clear" }));
+      room.broadcast(JSON.stringify(<ClearRoomMessage>{ type: 'clear' }));
       room.broadcast(
         newMessage({
-          from: { id: "system" },
+          from: { id: 'system' },
           text: `Room history cleared`,
         })
       );
@@ -64,7 +70,7 @@ export default {
     }
 
     // respond to cors preflight requests
-    if (request.method === "OPTIONS") {
+    if (request.method === 'OPTIONS') {
       return ok();
     }
 
@@ -82,27 +88,27 @@ export default {
     connection.send(syncMessage(room.messages ?? []));
 
     // keep track of connections
-    updateRoomList("enter", connection, room);
-    connection.addEventListener("close", () =>
-      updateRoomList("leave", connection, room)
+    updateRoomList('enter', connection, room);
+    connection.addEventListener('close', () =>
+      updateRoomList('leave', connection, room)
     );
 
     // handle incoming messages from client
     const onUserMessage = async (message: UserMessage) => {
       // handle user authentication
-      if (message.type === "identify") {
+      if (message.type === 'identify') {
         if ((connection.user = await authenticateUser(room, message))) {
-          updateRoomList("enter", connection, room);
+          updateRoomList('enter', connection, room);
           connection.send(
             newMessage({
-              from: { id: "system" },
+              from: { id: 'system' },
               text: `Welcome ${connection.user.username}!`,
             })
           );
           if (!room.env.OPENAI_API_KEY) {
             connection.send(
               systemMessage(
-                "OpenAI API key not configured. AI bot is not available"
+                'OpenAI API key not configured. AI bot is not available'
               )
             );
           }
@@ -111,16 +117,16 @@ export default {
       }
 
       // handle user messages
-      if (message.type === "new" || message.type === "edit") {
+      if (message.type === 'new' || message.type === 'edit') {
         const user = connection.user;
         if (!isSessionValid(user)) {
           return connection.send(
-            systemMessage("You must sign in to send messages to this room")
+            systemMessage('You must sign in to send messages to this room')
           );
         }
 
         if (message.text.length > 1000) {
-          return connection.send(systemMessage("Message too long"));
+          return connection.send(systemMessage('Message too long'));
         }
 
         const payload = <Message>{
@@ -131,20 +137,20 @@ export default {
         };
 
         // send new message to all connections
-        if (message.type === "new") {
+        if (message.type === 'new') {
           room.broadcast(newMessage(payload), []);
           room.messages!.push(payload);
         }
 
         // send edited message to all connections
-        if (message.type === "edit") {
+        if (message.type === 'edit') {
           room.broadcast(editMessage(payload), []);
-          room.messages = room.messages!.map((m) =>
+          room.messages = room.messages!.map(m =>
             m.id == message.id ? payload : m
           );
         }
         // persist the messages to storage
-        await room.storage.put("messages", room.messages);
+        await room.storage.put('messages', room.messages);
 
         // automatically clear the room storage after period of inactivity
         await room.storage.deleteAlarm();
@@ -154,10 +160,10 @@ export default {
       }
     };
 
-    connection.addEventListener("message", (event) => {
+    connection.addEventListener('message', event => {
       const message = JSON.parse(event.data as string) as UserMessage;
-      onUserMessage(message).catch((error) => {
-        console.log("Error while handling user message", error);
+      onUserMessage(message).catch(error => {
+        console.log('Error while handling user message', error);
       });
     });
   },
@@ -165,9 +171,9 @@ export default {
   /**
    * A scheduled job that executes when the room storage alarm is triggered
    */
-  async onAlarm(room: Omit<ChatRoom, "id">) {
+  async onAlarm(room: Omit<ChatRoom, 'id'>) {
     // alarms don't have access to room id, so retrieve it from storage
-    const id = await room.storage.get<string>("id");
+    const id = await room.storage.get<string>('id');
     if (id) {
       await removeRoomMessages(room);
       await removeRoomFromRoomList({ ...room, id });
@@ -176,9 +182,9 @@ export default {
 } satisfies PartyKitServer;
 
 /** Retrieve messages from room storage and store them on room instance */
-async function ensureLoadMessages(room: Omit<ChatRoom, "id">) {
+async function ensureLoadMessages(room: Omit<ChatRoom, 'id'>) {
   if (!room.messages) {
-    room.messages = (await room.storage.get<Message[]>("messages")) ?? [];
+    room.messages = (await room.storage.get<Message[]>('messages')) ?? [];
   }
   return room.messages;
 }
@@ -188,20 +194,20 @@ async function ensureAIParticipant(room: ChatRoom) {
   if (!room.ai) {
     room.ai = true;
     room.parties.ai.get(room.id).fetch({
-      method: "POST",
-      body: JSON.stringify({ action: "connect", id: room.id }),
+      method: 'POST',
+      body: JSON.stringify({ action: 'connect', id: room.id }),
     });
   }
 }
 
 /** Send room presence to the room listing party */
 async function updateRoomList(
-  action: "enter" | "leave",
+  action: 'enter' | 'leave',
   websocket: ChatConnection,
   room: ChatRoom
 ) {
   return room.parties.chatrooms.get(SINGLETON_ROOM_ID).fetch({
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify({
       id: room.id,
       connections: room.connections.size,
@@ -214,16 +220,16 @@ async function updateRoomList(
 /** Remove this room from the room listing party */
 async function removeRoomFromRoomList(room: ChatRoom) {
   return room.parties.chatrooms.get(SINGLETON_ROOM_ID).fetch({
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify({
       id: room.id,
-      action: "delete",
+      action: 'delete',
     }),
   });
 }
 
 /** Clear room storage */
-async function removeRoomMessages(room: Omit<ChatRoom, "id">) {
-  await room.storage.delete("messages");
+async function removeRoomMessages(room: Omit<ChatRoom, 'id'>) {
+  await room.storage.delete('messages');
   room.messages = [];
 }

@@ -2,8 +2,8 @@ import {
   ChatCompletionRequestMessage,
   Configuration,
   OpenAIApi,
-} from "openai-edge";
-import { OpenAIStream } from "ai";
+} from 'openai-edge';
+import { OpenAIStream } from 'ai';
 
 export type AIMessage = ChatCompletionRequestMessage;
 
@@ -20,19 +20,19 @@ export async function getChatCompletionResponse(
     })
   );
 
-  const prompt = chain.map((message) => {
+  const prompt = chain.map(message => {
     return { role: message.role, content: message.content };
   });
 
   const openaiResponse = await openai.createChatCompletion({
-    model: "gpt-3.5-turbo",
+    model: 'gpt-3.5-turbo',
     stream: true,
     messages: prompt,
   });
 
   const stream = OpenAIStream(openaiResponse, {
     onStart: async () => onStartCallback(),
-    onToken: async (token) => onTokenCallback(token),
+    onToken: async token => onTokenCallback(token),
   });
 
   // @ts-ignore

@@ -2,14 +2,14 @@ import {
   PartyKitServer,
   PartyKitConnection,
   PartyKitRoom,
-} from "partykit/server";
-import { nanoid } from "nanoid";
-import type { Message, ChatMessage, UserMessage } from "./utils/message";
-import { getChatCompletionResponse, AIMessage } from "./utils/openai";
-import { notFound } from "next/navigation";
-import { error, ok } from "./utils/response";
+} from 'partykit/server';
+import { nanoid } from 'nanoid';
+import type { Message, ChatMessage, UserMessage } from './utils/message';
+import { getChatCompletionResponse, AIMessage } from './utils/openai';
+import { notFound } from 'next/navigation';
+import { error, ok } from './utils/response';
 
-export const AI_USERNAME = "AI";
+export const AI_USERNAME = 'AI';
 
 /**
  * A chatroom party can request an AI to join it, and the AI party responds
@@ -17,12 +17,12 @@ export const AI_USERNAME = "AI";
  */
 export default {
   async onRequest(req, room) {
-    if (req.method !== "POST") return notFound();
+    if (req.method !== 'POST') return notFound();
 
     const { id, action } = await req.json();
-    if (action !== "connect") return notFound();
+    if (action !== 'connect') return notFound();
 
-    if (!room.env.OPENAI_API_KEY) return error("OPENAI_API_KEY not set");
+    if (!room.env.OPENAI_API_KEY) return error('OPENAI_API_KEY not set');
 
     // open a websocket connection to the chatroom
     const chatRoom = room.parties.chatroom.get(id);
@@ -35,31 +35,65 @@ export default {
   },
 } satisfies PartyKitServer;
 
-const PROMPT_MESSAGE_HISTORY_LENGTH = 10;
-const PROMPT = `
-You are a participant in an internet chatroom. 
-You're trying to fit in and impress everyone else with cool facts that you know.
-You emulate the tone and writing style of the room. 
-When presented with a chat history, you'll respond with a cool fact that's related to the topic being discussed. 
-Keep your responses short.
-`;
+function arrayToNaturalLanguage(arr: string[]) {
+  if (arr.length === 0) {
+    return '';
+  } else if (arr.length === 1) {
+    return arr[0];
+  } else if (arr.length === 2) {
+    return arr[0] + ' and ' + arr[1];
+  } else {
+    const commaSeparated = arr.slice(0, -1).join(', ');
+    return commaSeparated + ', and ' + arr[arr.length - 1];
+  }
+}
+
+// used to pull room details and inject into AI prompt in party/ai.ts
+function processRoomDetails(rawString: string) {
+  const allArr = rawString.split('_');
+  const subject = allArr[0].replace('-', ' ');
+  const topicsArr = allArr[1].replace('-', ' ').split('~');
+  const expertsArr = allArr[2].replace('-', ' ').split('~');
+  return { subject, topics: topicsArr, experts: expertsArr };
+}
 
 // act as a user in the room
 function simulateUser(
-  socket: PartyKitConnection["socket"],
+  socket: PartyKitConnection['socket'],
   room: PartyKitRoom
 ) {
   let messages: Message[] = [];
   let identified = false;
 
+  const PROMPT_MESSAGE_HISTORY_LENGTH = 10;
+
+  const roomDetails = processRoomDetails(room.id);
+
+  const PROMPT = `
+    You are a participant in an internet chatroom about ${roomDetails.subject.replaceAll(
+      '-',
+      ' '
+    )}.
+    You are an expert in ${arrayToNaturalLanguage(roomDetails.topics)}.
+    ${
+      roomDetails.experts[0].length > 0
+        ? `You are well-versed in the writings of ${arrayToNaturalLanguage(
+            roomDetails.experts
+          )}.`
+        : ''
+    }
+    When presented with a chat history, you'll respond with an interesting example of how these topics might apply to the current conversation.
+    Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate".
+    `;
+
   // listen to messages from the chatroom
-  socket.addEventListener("message", (message) => {
+  socket.addEventListener('message', message => {
     // before first message, let the room know who we are
     if (!identified) {
       identified = true;
       socket.send(
         JSON.stringify(<UserMessage>{
-          type: "identify",
+          type: 'identify',
           username: AI_USERNAME,
         })
       );
@@ -67,46 +101,47 @@ function simulateUser(
 
     const data = JSON.parse(message.data as string) as ChatMessage;
     // the room sent us the whole list of messages
-    if (data.type === "sync") {
+    if (data.type === 'sync') {
       messages = data.messages;
     }
     // a client updated a message
-    if (data.type === "edit") {
-      messages = messages.map((m) => (m.id === data.id ? data : m));
+    if (data.type === 'edit') {
+      messages = messages.map(m => (m.id === data.id ? data : m));
     }
     // a client sent a nessage message
-    if (data.type === "new") {
+    if (data.type === 'new') {
       messages.push(data);
+      console.log(PROMPT);
       // don't respond to our own messages
-      if (data.from.id !== AI_USERNAME && data.from.id !== "system") {
+      if (data.from.id !== AI_USERNAME && data.from.id !== 'system') {
         // construct a mesage history to send to the AI
         const prompt: AIMessage[] = [
-          { role: "system", content: PROMPT },
-          ...messages.slice(-PROMPT_MESSAGE_HISTORY_LENGTH).map((message) => ({
+          { role: 'system', content: PROMPT },
+          ...messages.slice(-PROMPT_MESSAGE_HISTORY_LENGTH).map(message => ({
             role:
               message.from.id === AI_USERNAME
-                ? ("assistant" as const)
-                : ("user" as const),
+                ? ('assistant' as const)
+                : ('user' as const),
             content: message.text,
           })),
         ];
 
         // give message an id so we can edit it
         const id = nanoid();
-        let text = "";
+        let text = '';
 
         getChatCompletionResponse(
           room.env,
           prompt,
           () => {
             // post an empty message to start with
-            socket.send(JSON.stringify(<UserMessage>{ type: "new", id, text }));
+            socket.send(JSON.stringify(<UserMessage>{ type: 'new', id, text }));
           },
-          (token) => {
+          token => {
             // edit the message as tokens arrive
             text += token;
             socket.send(
-              JSON.stringify(<UserMessage>{ type: "edit", id, text })
+              JSON.stringify(<UserMessage>{ type: 'edit', id, text })
             );
           }
         );
