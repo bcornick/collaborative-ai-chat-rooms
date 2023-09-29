@@ -10,12 +10,16 @@ export default function Footer() {
             Built with{' '}
             <Link
               href="https://nextjs.org"
+              target="_blank"
+              rel="noreferrer"
               className="underline">
               Next.js
             </Link>{' '}
             and{' '}
             <Link
               href="https://partykit.io"
+              target="_blank"
+              rel="noreferrer"
               className="underline">
               PartyKit
             </Link>
@@ -25,6 +29,8 @@ export default function Footer() {
           <ThemeSwitcher />
           <Link
             href="https://github.com/bcornick/collaborative-ai-chat-rooms"
+            target="_blank"
+            rel="noreferrer"
             className="bg-stone-200 hover:bg-stone-300 p-2 rounded text-stone-600 whitespace-nowrap dark:bg-gray-900 dark:text-gray-50 dark:hover:bg-gray-950">
             View on GitHub
           </Link>
