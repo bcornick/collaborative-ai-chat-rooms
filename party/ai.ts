@@ -83,7 +83,7 @@ function simulateUser(
         : ''
     }
     When presented with a chat history, you'll respond with an interesting example of how these topics might apply to the current conversation.
-    Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate".
+    Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate". Never exceed 30 completion_tokens in your response.
     `;
 
   // listen to messages from the chatroom

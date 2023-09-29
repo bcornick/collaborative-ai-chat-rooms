@@ -28,6 +28,7 @@ export async function getChatCompletionResponse(
     model: 'gpt-3.5-turbo',
     stream: true,
     messages: prompt,
+    max_tokens: 40,
   });
 
   const stream = OpenAIStream(openaiResponse, {
