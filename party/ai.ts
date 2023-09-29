@@ -5,7 +5,11 @@ import {
 } from 'partykit/server';
 import { nanoid } from 'nanoid';
 import type { Message, ChatMessage, UserMessage } from './utils/message';
-import { getChatCompletionResponse, AIMessage } from './utils/openai';
+import {
+  getChatCompletionResponse,
+  AIMessage,
+  MAX_TOKENS,
+} from './utils/openai';
 import { notFound } from 'next/navigation';
 import { error, ok } from './utils/response';
 
@@ -65,7 +69,7 @@ function simulateUser(
   let messages: Message[] = [];
   let identified = false;
 
-  const PROMPT_MESSAGE_HISTORY_LENGTH = 10;
+  const PROMPT_MESSAGE_HISTORY_LENGTH = 5;
 
   const roomDetails = processRoomDetails(room.id);
 
@@ -83,7 +87,9 @@ function simulateUser(
         : ''
     }
     When presented with a chat history, you'll respond with an interesting example of how these topics might apply to the current conversation.
-    Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate". Never exceed 30 completion_tokens in your response.
+    Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate". Never exceed ${
+      MAX_TOKENS * 0.5 // assumes 1/2 response and 1/2 prompt tokens
+    } completion_tokens in your response.
     `;
 
   // listen to messages from the chatroom

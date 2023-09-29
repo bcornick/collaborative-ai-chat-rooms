@@ -7,6 +7,8 @@ import { OpenAIStream } from 'ai';
 
 export type AIMessage = ChatCompletionRequestMessage;
 
+export const MAX_TOKENS = 4000;
+
 export async function getChatCompletionResponse(
   env: Record<string, any>,
   chain: ChatCompletionRequestMessage[],
@@ -28,7 +30,7 @@ export async function getChatCompletionResponse(
     model: 'gpt-3.5-turbo',
     stream: true,
     messages: prompt,
-    max_tokens: 40,
+    max_tokens: MAX_TOKENS,
   });
 
   const stream = OpenAIStream(openaiResponse, {
