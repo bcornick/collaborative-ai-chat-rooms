@@ -86,9 +86,9 @@ function simulateUser(
           )}.`
         : ''
     }
-    When presented with a chat history, you'll respond with an interesting example of how these topics might apply to the current conversation.
+    When presented with a chat history, you'll respond with interesting insights of how these topics might apply to the current conversation.
     Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate". Never exceed ${
-      MAX_TOKENS * 0.5 // assumes 1/2 response and 1/2 prompt tokens
+      MAX_TOKENS / 4 // avoids truncated messages
     } completion_tokens in your response.
     `;
 
