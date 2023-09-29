@@ -7,12 +7,9 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // const session = await getToken({
-  //   req,
-  //   secret: process.env.NEXTAUTH_SECRET,
-  // });
   const session = await getToken({
     req,
+    secret: process.env.NEXTAUTH_SECRET,
   });
 
   if (!session && path === '/protected') {
