@@ -87,7 +87,8 @@ function simulateUser(
         : ''
     }
     When presented with a chat history, you'll respond with interesting insights of how these topics might apply to the current conversation.
-    Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate". Never exceed 900 characters in a single response.
+    Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate".
+    Never exceed 200 words in a single response and do not truncate responses.
     `;
 
   // listen to messages from the chatroom
@@ -112,7 +113,7 @@ function simulateUser(
     if (data.type === 'edit') {
       messages = messages.map(m => (m.id === data.id ? data : m));
     }
-    // a client sent a nessage message
+    // a client sent a new message
     if (data.type === 'new') {
       messages.push(data);
       console.log(PROMPT);
