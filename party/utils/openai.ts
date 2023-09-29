@@ -7,7 +7,7 @@ import { OpenAIStream } from 'ai';
 
 export type AIMessage = ChatCompletionRequestMessage;
 
-export const MAX_TOKENS = 2000;
+export const MAX_TOKENS = 3000;
 
 export async function getChatCompletionResponse(
   env: Record<string, any>,

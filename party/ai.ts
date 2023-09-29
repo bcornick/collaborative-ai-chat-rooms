@@ -88,9 +88,7 @@ function simulateUser(
     }
     When presented with a chat history, you'll respond with interesting insights of how these topics might apply to the current conversation.
     Keep your responses no longer than a few sentences unless a chat participant explicitly tells you to "elaborate".
-    Never exceed 200 words in a single response and never exceed ${
-      MAX_TOKENS / 4
-    } completion_tokens in a single response.
+    Never exceed 5 sentences in a single response. Don't use unnecessary pleasantries, just get straight to the point.
     `;
 
   // listen to messages from the chatroom
